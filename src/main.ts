@@ -133,7 +133,8 @@ function update(this: any) {
 
     // Random Enemy Spawn (20% chance)
     if (Math.random() < 0.2) {
-      const enemy = this.add.rectangle(x, this.nextPlatformY - 32, 24, 24, 0xff0000);
+      const enemyColor = Math.random() > 0.5 ? 0xff0000 : 0x8800ff; // Red or Purple enemies
+      const enemy = this.add.rectangle(x, this.nextPlatformY - 32, 24, 24, enemyColor);
       this.physics.add.existing(enemy);
       this.enemies.add(enemy);
       this.tweens.add({
