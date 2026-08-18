@@ -26,6 +26,7 @@ function preload(this: Phaser.Scene) {}
 function create(this: any) {
   // Initialize fundamental state
   this.isGameOver = false;
+  this.score = 0;
   this.highScore = 0;
   this.nextPlatformY = 450;
   this.startPlayerY = 500;
@@ -45,7 +46,7 @@ function create(this: any) {
   this.enemies = this.physics.createGroup({ allowGravity: false, immovable: true });
   this.powerups = this.physics.createGroup({ allowGravity: false, immovable: true });
 
-  // Start life cycle
+  // Initial setup
   this.initGameplay();
 
   // Global Listeners
@@ -76,102 +77,109 @@ function initGameplay(this: any) {
   this.physics.add.existing(initialPlatform, true);
   this.platforms.add(initialPlatform);
 
-  // Collision: Player vs Platforms (Bounce)
+  // Add first set of platforms
+  for (let i = 1; i < 5; i++) {
+    this.spawnPlatform(400 + (i * 20 - 40), 550 - (i * 100));
+  }
+
+  // Collision detection: Player vs Platforms (Bounce)
   this.physics.add.collider(this.player, this.platforms, (p: any, plat: any) => {
-    if (p.body.touching.down) {
-      p.body.setVelocityY(-400);
-      // Squash animation on landing
-      this.tweens.add({
-        targets: p,
-        scaleX: 1.3,
-        scaleY: 0.7,
-        duration: 100,
-        yoyo: true
-      });
+    if (p.body.velocity.y > 0 && p.y <= plat.y + 10) {
+      p.body.setVelocityY(-400); // Bounce!
     }
-  });
+  }, undefined, this);
 
-  // Collision: Player vs Powerups (Spring Jump)
-  this.physics.add.overlap(this.player, this.powerups, (p: any, pow: any) => {
-    pow.destroy();
-    const pBody = p.body as any;
-    pBody.setVelocityY(-600);
-    // Stretch animation on super jump
-    this.tweens.add({
-      targets: p,
-      scaleX: 0.7,
-      scaleY: 1.5,
-      duration: 200,
-      yoyo: true
-    });
-  });
-
-  // Collision: Player vs Enemies (Death)
+  // Collision detection: Player vs Enemies (Game Over)
   this.physics.add.overlap(this.player, this.enemies, () => {
     this.events.emit('game-over');
-  });
+  }, undefined, this);
+
+  // Collision detection: Player vs Powerups (Placeholder logic)
+  this.physics.add.overlap(this.player, this.powerups, (p: any, pw: any) => {
+     pw.destroy();
+     this.score += 100;
+     this.scoreText.setText(`Score: ${this.score}`);
+  }, undefined, this);
+}
+
+function spawnPlatform(this: any, x: number, y: number) {
+  const width = 150;
+  const platform = this.add.rectangle(x, y, width, 20, 0xffffff);
+  this.physics.add.existing(platform, true);
+  this.platforms.add(platform);
+
+  // Randomly vary platform color (Phase 3)
+  const colors = [0xffffff, 0xcccccc, 0xe6e6e6, 0xdddddd];
+  const selectedColor = Phaser.Utils.Array.GetRandom(colors);
+  platform.setFillStyle(selectedColor);
+
+  // Random Enemy Spawn (20% chance) - Phase 2
+  if (Math.random() < 0.2) {
+    const enemyColor = Math.random() > 0.5 ? 0xff0000 : 0x8800ff;
+    const enemy = this.add.rectangle(x, y - 32, 24, 24, enemyColor);
+    this.physics.add.existing(enemy);
+    this.enemies.add(enemy);
+    // Call the helper function
+    enoughEnemyLogic(this, enemy, x);
+  }
+  // Random Powerup Spawn (10% chance) - Phase 2
+  if (Math.random() < 0.1) {
+     const pw = this.add.circle(x, y - 40, 10, 0xffff00);
+     this.physics.add.existing(pw, true);
+     this.powerups.add(pw);
+  }
+
+  this.nextPlatformY = y;
+}
+
+function enoughEnemyLogic(this: any, enemy: any, x: number) {
+    // Temporary placeholder for the patrol movement implementation
+    this.tweens.add({
+        targets: enemy,
+        x: x + 60,
+        duration: 2000,
+        yoyo: true,
+        repeat: -1
+    });
+    return enemy;
 }
 
 function update(this: any) {
   if (this.isGameOver) return;
 
-  // Player Input
+  // Horizontal Movement
+  const speed = 200;
   if (this.cursors.left.isDown) {
-    this.player.body.setVelocityX(-200);
+    this.player.body.setVelocityX(-speed);
   } else if (this.cursors.right.isDown) {
-    this.player.body.setVelocityX(200);
+    this.player.body.setVelocityX(speed);
   } else {
     this.player.body.setVelocityX(0);
   }
 
-  // Procedural Platform Generation
-  if (this.player.y < this.nextPlatformY + 400) {
-    const x = Phaser.Math.Between(100, 700);
-    const platform = this.add.rectangle(x, this.nextPlatformY, 150, 20, 0xffffff);
-    this.physics.add.existing(platform, true);
-    this.platforms.add(platform);
-
-    // Random Enemy Spawn (20% chance)
-    if (Math.random() < 0.2) {
-      const enemyColor = Math.random() > 0.5 ? 0xff0000 : 0x8800ff; // Red or Purple enemies
-      const enemy = this.add.rectangle(x, this.nextPlatformY - 32, 24, 24, enemyColor);
-      this.physics.add.existing(enemy);
-      this.enemies.add(enemy);
-      this.tweens.add({
-        targets: enemy,
-        x: x + 50,
-        duration: 1000,
-        yoyo: true,
-        repeat: -1
-      });
-    }
-
-    // Random Powerup Spawn (15% chance)
-    if (Math.random() < 0.15) {
-      const powerup = this.add.circle(x, this.nextPlatformY - 30, 12, 0xffff00);
-      this.physics.add.existing(powerup, true);
-      this.powerups.add(powerup);
-    }
-
-    // Advance spawn point up
-    this.nextPlatformY -= Phaser.Math.Between(150, 250);
+  // Camera/Scrolling logic: Spawn platforms as player ascends
+  if (this.player.y < 300) {
+    const newY = this.nextPlatformY - 100;
+    const newX = Phaser.Utils.Array.GetRandom(this.physics.getBounds().x, this.physics.getBounds().width - 150); // Dummy randomness
+    // Actually use relative movement
+    const offset = 400 - this.player.x;
+    const targetX = 400 + (Phaser.Utils.Array.GetRandom(-150, 150));
+    this.spawnPlatform(targetX, newY);
   }
 
-  // Score Tracking
-  const currentScore = Math.max(0, Math.floor((this.startPlayerY - this.player.y) / 10));
-  if (currentScore > this.highScore) {
-    this.highScore = currentScore;
-    this.highScoreText.setText(`High Score: ${this.highScore}`);
+  // Score calculation based on height
+  const currentScore = Math.floor(Math.max(0, 500 - this.player.y));
+  if (currentScore > this.score) {
+    this.score = currentScore;
+    this.scoreText.setText(`Score: ${this.score}`);
   }
-  this.scoreText.setText(`Score: ${currentScore}`);
 
-  // Camera Follow
-  if (this.player.y < this.cameras.main.scrollY + 300) {
-    this.cameras.mutableScrollY = this.player.y - 300;
+  // Check for death by falling out of bounds
+  if (this.player.y > 600) {
+    this.events.emit('game-over');
   }
 }
 
 function restartGame(this: any) {
-    // Re-dispatching a fresh scene to reset state correctly
   this.scene.restart();
 }
