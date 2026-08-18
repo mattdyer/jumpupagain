@@ -47,19 +47,7 @@ function create(this: any) {
 
   // Collision between player and platforms
   this.physics.add.collider(this.player, this.platforms, (p: any, plat: any) => {
-    if (p.body.touching.down || p.body.touching.up) {
-      p.body.setVelocityY(-400); // Bounce up
-    }
-  });
-
-  // Initial platform
-  const initialPlatform = this.add.rectangle(400, 550, 200, 20, 0xffffff);
-  this.physics.add.existing(initialPlatform, true);
-  this.platforms.add(initialPlatform);
-
-  // Collision between player and platforms
-  this.physics.add.collider(this.player, this.platforms, (p: any, plat: any) => {
-    if (p.body.touching.down || p.body.touching.up) {
+    if (p.body.touching.down) {
       p.body.setVelocityY(-400); // Bounce up
     }
   });
@@ -71,7 +59,7 @@ function create(this: any) {
 function update(this: any) {
   if (this.cursors.left.isDown) {
     this.player.body.setVelocityX(-200);
-  } else if (toThis.cursors.right.isDown) {
+  } else if (this.cursors.right.isDown) {
     this.player.body.setVelocityX(200);
   } else {
     this.player.body.setVelocityX(0);
