@@ -42,9 +42,9 @@ function create(this: any) {
   }).setOrigin(0.5).setVisible(false);
 
   // Physics Groups
-  this.platforms = this.physics.createGroup({ allowGravity: false, immovable: true });
-  this.enemies = this.physics.createGroup({ allowGravity: false, immovable: true });
-  this.powerups = this.physics.createGroup({ allowGravity: false, immovable: true });
+  this.platforms = this.physics.add.group({ allowGravity: false, immovable: true });
+  this.enemies = this.physics.add.group({ allowGravity: false, immovable: true });
+  this.powerups = this.physics.add.group({ allowGravity: false, immovable: true });
 
   // Initial setup
   this.initGameplay();
