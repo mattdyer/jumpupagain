@@ -59,6 +59,7 @@ function create(this: any) {
   this.events.on('game-over', () => {
     this.isGameOver = true;
     this.gameOverText.setVisible(true);
+    this.cameras.main.shake(500, 0.02); // Screen shake on death!
   });
 
   // Input setup
@@ -86,19 +87,50 @@ function initGameplay(this: any) {
   this.physics.add.collider(this.player, this.platforms, (p: any, plat: any) => {
     if (p.body.velocity.y > 0 && p.y <= plat.y + 10) {
       p.body.setVelocityY(-400); // Bounce!
+
+      // Add "juice": Squash and stretch effect on impact
+      this.tweens.add({
+        targets: p,
+        scaleX: 1.2,
+        scaleY: 0.8,
+        duration: 50,
+        yoyo: true,
+        repeat: 0
+      });
     }
   }, undefined, this);
 
-  // Collision detection: Player vs Enemies (Game Over)
-  this.physics.add.overlap(this.player, this.enemies, () => {
-    this.events.emit('game-over');
+  // Collision detection: Player vs Enemies (Game Over or Bounce if Shielded)
+  this.physics.add.overlap(this.player, this.enemies, (p: any, e: any) => {
+    if ((p as any).isShielded) {
+      e.destroy(); // Shield absorbs the hit!
+      this.score += 50;
+    } else {
+      this.events.emit('game-over');
+    }
   }, undefined, this);
 
-  // Collision detection: Player vs Powerups (Placeholder logic)
+  // Collision detection: Player vs Powerups (Activation)
   this.physics.add.overlap(this.player, this.powerups, (p: any, pw: any) => {
-     pw.destroy();
-     this.score += 100;
-     this.scoreText.setText(`Score: ${this.score}`);
+     const type = (pw as any).type;
+     
+     // Add "juice": Scale effect on collection
+     this.tweens.add({
+       targets: pw,
+       scale: 1.5,
+       duration: 100,
+       onComplete: () => {
+         if (type === 'spring') {
+           p.body.setVelocityY(-600); // Massive bounce!
+         } else if (type === 'shield') {
+           (p as any).isShielded = true;
+           setTimeout(() => { (p as any).isShielded = false; }, 5000);
+         }
+         pw.destroy();
+         this.score += 100;
+         this.scoreText.setText(`Score: ${this.score}`);
+       }
+     });
   }, undefined, this);
 }
 
@@ -118,15 +150,17 @@ function spawnPlatform(this: any, x: number, y: number) {
     const enemyColor = Math.random() > 0.5 ? 0xff0000 : 0x8800ff;
     const enemy = this.add.rectangle(x, y - 32, 24, 24, enemyColor);
     this.physics.add.existing(enemy);
-    this.enemies.add(enemy);
-    // Call the helper function
-    enoughEnemyLogic(this, enemy, x);
+    this.enemies.add(enemy as any);
+    enoughEnemyLogic.call(this, enemy, x);
   }
   // Random Powerup Spawn (10% chance) - Phase 2
   if (Math.random() < 0.1) {
-     const pw = this.add.circle(x, y - 40, 10, 0xffff00);
-     this.physics.add.existing(pw, true);
-     this.powerups.add(pw);
+    const pwType = Math.random() > 0.5 ? 'spring' : 'shield';
+    const color = pwType === 'spring' ? 0xffff00 : 0x00ffff;
+    const pw = this.add.circle(x, y - 40, 10, color);
+    this.physics.add.existing(pw, true);
+    (pw as any).type = pwType; // Attach type to the object
+    this.powerups.add(pw as any);
   }
 
   this.nextPlatformY = y;
@@ -160,10 +194,7 @@ function update(this: any) {
   // Camera/Scrolling logic: Spawn platforms as player ascends
   if (this.player.y < 300) {
     const newY = this.nextPlatformY - 100;
-    const newX = Phaser.Utils.Array.GetRandom(this.physics.getBounds().x, this.physics.getBounds().width - 150); // Dummy randomness
-    // Actually use relative movement
-    const offset = 400 - this.player.x;
-    const targetX = 400 + (Phaser.Utils.Array.GetRandom(-150, 150));
+    const targetX = Phaser.Math.Between(250, 550);
     this.spawnPlatform(targetX, newY);
   }
 
@@ -177,6 +208,13 @@ function update(this: any) {
   // Check for death by falling out of bounds
   if (this.player.y > 600) {
     this.events.emit('game-over');
+  }
+
+  // Visual feedback for shield
+  if ((this.player as any).isShielded) {
+    this.player.setTint(0x00ffff); // Cyan glow when shielded
+  } else {
+    this.player.clearTint(); // Reset tint
   }
 }
 
