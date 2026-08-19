@@ -150,7 +150,7 @@ function spawnPlatform(this: any, x: number, y: number) {
   // Randomly vary platform color (Phase 3)
   const colors = [0xffffff, 0xcccccc, 0xe6e6e6, 0xdddddd];
   const selectedColor = Phaser.Utils.Array.GetRandom(colors);
-  platform.setFillStyle(selectedcolor); // Error here: variable name
-  // (I will write the correct code below in a clean pass)
+  platform.setFillStyle(selectedColor);
+
 }
 ...
